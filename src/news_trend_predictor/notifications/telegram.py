@@ -14,6 +14,10 @@ class TelegramNotifier:
         self.settings = settings
 
     def send(self, message: str) -> None:
+        if not self.settings.enable_internal_telegram_notifier:
+            LOGGER.info("Internal Telegram notifier is disabled. Skipping notification.")
+            return
+
         if not self.settings.telegram_bot_token or not self.settings.telegram_chat_id:
             LOGGER.info("Telegram is not configured. Skipping notification.")
             return

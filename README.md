@@ -351,42 +351,46 @@ The current setup uses `n8n` for visual orchestration and Python for ML executio
 
 ## n8n Automation
 
-The repository now includes an importable n8n workflow:
+The repository now includes an importable n8n workflow.
 
-- [news-trend-predictor.json](D:/Classic%20ML/DeployProjects/auto-ml/n8n/workflows/news-trend-predictor.json)
-- [n8n/README.md](D:/Classic%20ML/DeployProjects/auto-ml/n8n/README.md)
+Files to use:
+
+- workflow JSON: `n8n/workflows/news-trend-predictor.json`
+- n8n-specific notes: `n8n/README.md`
 
 The workflow provides visual connections for:
 
 - manual trigger
 - schedule trigger
+- HTTP request to the news API
 - pipeline execution
 - JSON result parsing
 - success vs failure branching
 - deployed vs not deployed branching
-- prepared payload for Telegram message nodes
-- prepared payload for Google Sheets logging nodes
+- Telegram notification nodes
+- Google Sheets append node
 
 Visual flow:
 
 ```text
 Manual Trigger ----\
-                    -> Run Pipeline -> Parse Result -> Pipeline Success?
-Schedule Trigger --/                                 | false -> Build Failure Message
-                                                     |
-                                                     true -> Model Improved?
-                                                             | true  -> Build Deploy Message
-                                                             | false -> Build Success Message
-Parse Result ---------------------------------------> Prepare Sheets Row
+                    -> HTTP Request - News API -> Run Pipeline -> Parse Result -> Pipeline Success?
+Schedule Trigger --/                                                   | false -> Build Failure Message -> Telegram - Failure
+                                                                       |
+                                                                       true -> Model Improved?
+                                                                               | true  -> Build Deploy Message  -> Telegram - Deploy
+                                                                               | false -> Build Success Message -> Telegram - Success
+Parse Result ----------------------------------------------------------> Prepare Sheets Row -> Google Sheets - Append Run
 ```
 
 How to use it in n8n:
 
 1. Open n8n
 2. Import `n8n/workflows/news-trend-predictor.json`
-3. Point the `Run Pipeline` node to this repository root if needed
-4. Replace or extend the prepared message/set nodes with native n8n Telegram and Google Sheets nodes
-5. Map their fields from the prepared payloads
+3. Configure `PROJECT_ROOT` in the environment used by n8n
+4. Configure Telegram credentials in the three Telegram nodes
+5. Configure Google Sheets credentials in the Google Sheets node
+6. Set the required environment variables used in the expressions
 
 How to see the workflow visually:
 
@@ -397,6 +401,16 @@ How to see the workflow visually:
 
 If you only want to inspect the visual node graph, importing the JSON is enough.
 If you want to execute it, n8n needs Python, project dependencies, and access to this repo.
+
+Recommended environment variables for n8n execution:
+
+- `PROJECT_ROOT`: root path of this project
+- `NEWS_API_BASE_URL`
+- `NEWS_API_ENDPOINT`
+- `NEWS_API_KEY`
+- `TELEGRAM_CHAT_ID`
+- `GOOGLE_SHEET_ID`
+- `GOOGLE_SHEET_NAME`
 
 Why the workflow uses a Python command node:
 
@@ -416,6 +430,7 @@ That script prints structured JSON so n8n can branch on:
 - `deployment.deployed`
 - `candidate_metrics.pr_auc`
 - `deployment.reason`
+- `error_message`
 
 ## Why This Project Is Middle-Level
 

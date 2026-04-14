@@ -60,10 +60,12 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
+    enable_internal_telegram_notifier: bool = True
 
     google_service_account_json: str | None = None
     google_sheet_id: str | None = None
     google_sheet_name: str = "pipeline_runs"
+    enable_internal_google_sheets_logger: bool = True
 
     schedule_cron: str = "0 * * * *"
 

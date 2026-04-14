@@ -8,8 +8,8 @@
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [
-        220,
-        280
+        180,
+        260
       ]
     },
     {
@@ -28,21 +28,45 @@
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
-        220,
-        120
+        180,
+        100
       ]
     },
     {
       "parameters": {
-        "command": "python scripts/run_pipeline_json.py"
+        "method": "GET",
+        "url": "={{ $env.NEWS_API_BASE_URL ? $env.NEWS_API_BASE_URL + ($env.NEWS_API_ENDPOINT || '/news') : 'https://example.com' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ $env.NEWS_API_KEY ? 'Bearer ' + $env.NEWS_API_KEY : '' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fetch-news-api",
+      "name": "HTTP Request - News API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        430,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "command": "={{ 'cd ' + ($env.PROJECT_ROOT || '.') + ' && python scripts/run_pipeline_json.py' }}"
       },
       "id": "run-pipeline",
       "name": "Run Pipeline",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        500,
-        200
+        690,
+        180
       ]
     },
     {
@@ -54,8 +78,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        740,
-        200
+        930,
+        180
       ]
     },
     {
@@ -80,13 +104,13 @@
           "combinator": "and"
         }
       },
-      "id": "is-success",
+      "id": "pipeline-success",
       "name": "Pipeline Success?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        980,
-        200
+        1170,
+        180
       ]
     },
     {
@@ -117,157 +141,300 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1210,
-        120
+        1410,
+        100
       ]
     },
     {
       "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "msg-deploy",
               "name": "message",
-              "value": "={{ '[News Trend Predictor] Pipeline succeeded. No deployment. Run ID: ' + $json.run_id + '. Candidate PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}"
+              "value": "={{ '[News Trend Predictor] Model improved and deployed. Run ID: ' + $json.run_id + '. Version: ' + ($json.deployment.new_version || 'candidate') + '. PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}",
+              "type": "string"
             }
           ]
         }
       },
-      "id": "success-no-deploy-message",
-      "name": "Build Success Message",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        1460,
-        220
-      ]
-    },
-    {
-      "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
-            {
-              "name": "message",
-              "value": "={{ '[News Trend Predictor] Model improved and was deployed. Run ID: ' + $json.run_id + '. New version: ' + $json.deployment.new_version + '. PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}"
-            }
-          ]
-        }
-      },
-      "id": "success-deploy-message",
+      "id": "build-deploy-message",
       "name": "Build Deploy Message",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1460,
-        80
+        1640,
+        20
       ]
     },
     {
       "parameters": {
-        "keepOnlySet": true,
-        "values": {
-          "string": [
+        "assignments": {
+          "assignments": [
             {
+              "id": "msg-success",
               "name": "message",
-              "value": "={{ '[News Trend Predictor] Pipeline failed. Run ID: ' + $json.run_id + '. Error: ' + ($json.error_message || 'unknown error') }}"
+              "value": "={{ '[News Trend Predictor] Pipeline succeeded without deployment. Run ID: ' + $json.run_id + '. Candidate PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}",
+              "type": "string"
             }
           ]
         }
       },
-      "id": "failure-message",
+      "id": "build-success-message",
+      "name": "Build Success Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1640,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "msg-failure",
+              "name": "message",
+              "value": "={{ '[News Trend Predictor] Pipeline failed. Run ID: ' + $json.run_id + '. Error: ' + ($json.error_message || 'unknown error') }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "build-failure-message",
       "name": "Build Failure Message",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1210,
+        1410,
         340
       ]
     },
     {
       "parameters": {
-        "keepOnlySet": false,
-        "values": {
-          "string": [
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-deploy",
+      "name": "Telegram - Deploy",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1880,
+        20
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "replace-with-telegram-credentials",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-success",
+      "name": "Telegram - Success",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1880,
+        180
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "replace-with-telegram-credentials",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {}
+      },
+      "id": "telegram-failure",
+      "name": "Telegram - Failure",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1640,
+        340
+      ],
+      "credentials": {
+        "telegramApi": {
+          "id": "replace-with-telegram-credentials",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
             {
+              "id": "sheet-timestamp",
               "name": "timestamp",
-              "value": "={{ $now.toISO() }}"
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
             },
             {
+              "id": "sheet-run-id",
               "name": "run_id",
-              "value": "={{ $json.run_id }}"
+              "value": "={{ $json.run_id }}",
+              "type": "string"
             },
             {
-              "name": "status",
-              "value": "={{ $json.status }}"
-            },
-            {
-              "name": "deploy_decision",
-              "value": "={{ $json.deployment.reason }}"
-            },
-            {
-              "name": "model_version_old",
-              "value": "={{ $json.deployment.old_version }}"
-            },
-            {
-              "name": "model_version_new",
-              "value": "={{ $json.deployment.new_version }}"
-            },
-            {
-              "name": "error_message",
-              "value": "={{ $json.error_message }}"
-            }
-          ],
-          "number": [
-            {
+              "id": "sheet-records",
               "name": "number_of_records",
-              "value": "={{ $json.record_count }}"
+              "value": "={{ $json.record_count }}",
+              "type": "number"
             },
             {
+              "id": "sheet-old-version",
+              "name": "model_version_old",
+              "value": "={{ $json.deployment.old_version || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sheet-new-version",
+              "name": "model_version_new",
+              "value": "={{ $json.deployment.new_version || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "sheet-pr-old",
               "name": "pr_auc_old",
-              "value": "={{ $json.active_metrics.pr_auc }}"
+              "value": "={{ $json.active_metrics.pr_auc }}",
+              "type": "number"
             },
             {
+              "id": "sheet-pr-new",
               "name": "pr_auc_new",
-              "value": "={{ $json.candidate_metrics.pr_auc }}"
+              "value": "={{ $json.candidate_metrics.pr_auc }}",
+              "type": "number"
             },
             {
+              "id": "sheet-roc-old",
               "name": "roc_auc_old",
-              "value": "={{ $json.active_metrics.roc_auc }}"
+              "value": "={{ $json.active_metrics.roc_auc }}",
+              "type": "number"
             },
             {
+              "id": "sheet-roc-new",
               "name": "roc_auc_new",
-              "value": "={{ $json.candidate_metrics.roc_auc }}"
+              "value": "={{ $json.candidate_metrics.roc_auc }}",
+              "type": "number"
             },
             {
+              "id": "sheet-f1-old",
               "name": "f1_old",
-              "value": "={{ $json.active_metrics.f1 }}"
+              "value": "={{ $json.active_metrics.f1 }}",
+              "type": "number"
             },
             {
+              "id": "sheet-f1-new",
               "name": "f1_new",
-              "value": "={{ $json.candidate_metrics.f1 }}"
+              "value": "={{ $json.candidate_metrics.f1 }}",
+              "type": "number"
             },
             {
+              "id": "sheet-threshold",
               "name": "threshold",
-              "value": "={{ $json.threshold }}"
-            }
-          ],
-          "boolean": [
+              "value": "={{ $json.threshold }}",
+              "type": "number"
+            },
             {
-              "name": "deployed",
-              "value": "={{ $json.deployment.deployed }}"
+              "id": "sheet-decision",
+              "name": "deploy_decision",
+              "value": "={{ $json.deployment.reason }}",
+              "type": "string"
+            },
+            {
+              "id": "sheet-status",
+              "name": "status",
+              "value": "={{ $json.status }}",
+              "type": "string"
+            },
+            {
+              "id": "sheet-error",
+              "name": "error_message",
+              "value": "={{ $json.error_message || '' }}",
+              "type": "string"
             }
           ]
         }
       },
-      "id": "prepare-sheet-row",
+      "id": "prepare-sheets-row",
       "name": "Prepare Sheets Row",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1210,
-        500
+        1410,
+        520
       ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{ $env.GOOGLE_SHEET_ID }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{ $env.GOOGLE_SHEET_NAME || 'pipeline_runs' }}"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "run_id": "={{ $json.run_id }}",
+            "number_of_records": "={{ $json.number_of_records }}",
+            "model_version_old": "={{ $json.model_version_old }}",
+            "model_version_new": "={{ $json.model_version_new }}",
+            "pr_auc_old": "={{ $json.pr_auc_old }}",
+            "pr_auc_new": "={{ $json.pr_auc_new }}",
+            "roc_auc_old": "={{ $json.roc_auc_old }}",
+            "roc_auc_new": "={{ $json.roc_auc_new }}",
+            "f1_old": "={{ $json.f1_old }}",
+            "f1_new": "={{ $json.f1_new }}",
+            "threshold": "={{ $json.threshold }}",
+            "deploy_decision": "={{ $json.deploy_decision }}",
+            "status": "={{ $json.status }}",
+            "error_message": "={{ $json.error_message }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "google-sheets-append",
+      "name": "Google Sheets - Append Run",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1660,
+        520
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "replace-with-google-sheets-credentials",
+          "name": "Google Sheets Account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -276,7 +443,7 @@
       "main": [
         [
           {
-            "node": "Run Pipeline",
+            "node": "HTTP Request - News API",
             "type": "main",
             "index": 0
           }
@@ -284,6 +451,17 @@
       ]
     },
     "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - News API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - News API": {
       "main": [
         [
           {
@@ -356,11 +534,55 @@
           }
         ]
       ]
+    },
+    "Build Deploy Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Deploy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Success Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Failure Message": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Sheets Row": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Append Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
   "settings": {},
-  "versionId": "news-trend-predictor-v1",
+  "versionId": "news-trend-predictor-v2",
   "meta": {
     "templateCredsSetupCompleted": false
   },

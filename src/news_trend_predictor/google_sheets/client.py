@@ -37,6 +37,10 @@ class GoogleSheetsLogger:
         self.settings = settings
 
     def append_run(self, payload: dict[str, Any]) -> None:
+        if not self.settings.enable_internal_google_sheets_logger:
+            LOGGER.info("Internal Google Sheets logger is disabled. Skipping run log append.")
+            return
+
         if not self.settings.google_service_account_json or not self.settings.google_sheet_id:
             LOGGER.info("Google Sheets is not configured. Skipping run log append.")
             return
