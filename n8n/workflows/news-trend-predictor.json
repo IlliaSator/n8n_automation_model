@@ -1,0 +1,369 @@
+{
+  "name": "News Trend Predictor Automation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "command": "python scripts/run_pipeline_json.py"
+      },
+      "id": "run-pipeline",
+      "name": "Run Pipeline",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        500,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.stdout || '{}';\nconst parsed = JSON.parse(raw);\nreturn [{ json: parsed }];"
+      },
+      "id": "parse-result",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "is-success",
+      "name": "Pipeline Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        980,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.deployment.deployed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "model-improved",
+      "name": "Model Improved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1210,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "={{ '[News Trend Predictor] Pipeline succeeded. No deployment. Run ID: ' + $json.run_id + '. Candidate PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}"
+            }
+          ]
+        }
+      },
+      "id": "success-no-deploy-message",
+      "name": "Build Success Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1460,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "={{ '[News Trend Predictor] Model improved and was deployed. Run ID: ' + $json.run_id + '. New version: ' + $json.deployment.new_version + '. PR-AUC: ' + $json.candidate_metrics.pr_auc + '. Reason: ' + $json.deployment.reason }}"
+            }
+          ]
+        }
+      },
+      "id": "success-deploy-message",
+      "name": "Build Deploy Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1460,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "message",
+              "value": "={{ '[News Trend Predictor] Pipeline failed. Run ID: ' + $json.run_id + '. Error: ' + ($json.error_message || 'unknown error') }}"
+            }
+          ]
+        }
+      },
+      "id": "failure-message",
+      "name": "Build Failure Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1210,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": false,
+        "values": {
+          "string": [
+            {
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}"
+            },
+            {
+              "name": "run_id",
+              "value": "={{ $json.run_id }}"
+            },
+            {
+              "name": "status",
+              "value": "={{ $json.status }}"
+            },
+            {
+              "name": "deploy_decision",
+              "value": "={{ $json.deployment.reason }}"
+            },
+            {
+              "name": "model_version_old",
+              "value": "={{ $json.deployment.old_version }}"
+            },
+            {
+              "name": "model_version_new",
+              "value": "={{ $json.deployment.new_version }}"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $json.error_message }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "number_of_records",
+              "value": "={{ $json.record_count }}"
+            },
+            {
+              "name": "pr_auc_old",
+              "value": "={{ $json.active_metrics.pr_auc }}"
+            },
+            {
+              "name": "pr_auc_new",
+              "value": "={{ $json.candidate_metrics.pr_auc }}"
+            },
+            {
+              "name": "roc_auc_old",
+              "value": "={{ $json.active_metrics.roc_auc }}"
+            },
+            {
+              "name": "roc_auc_new",
+              "value": "={{ $json.candidate_metrics.roc_auc }}"
+            },
+            {
+              "name": "f1_old",
+              "value": "={{ $json.active_metrics.f1 }}"
+            },
+            {
+              "name": "f1_new",
+              "value": "={{ $json.candidate_metrics.f1 }}"
+            },
+            {
+              "name": "threshold",
+              "value": "={{ $json.threshold }}"
+            }
+          ],
+          "boolean": [
+            {
+              "name": "deployed",
+              "value": "={{ $json.deployment.deployed }}"
+            }
+          ]
+        }
+      },
+      "id": "prepare-sheet-row",
+      "name": "Prepare Sheets Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1210,
+        500
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Run Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Result": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Success?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Sheets Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Success?": {
+      "main": [
+        [
+          {
+            "node": "Model Improved?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Failure Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Model Improved?": {
+      "main": [
+        [
+          {
+            "node": "Build Deploy Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Success Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "news-trend-predictor-v1",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "id": "news-trend-predictor-workflow",
+  "tags": []
+}
