@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import argparse
+import base64
 import json
 import math
-from dataclasses import asdict
 
+from news_trend_predictor.data_ingestion.client import NewsAPIClient
 from news_trend_predictor.config.settings import get_settings
 from news_trend_predictor.logging_utils import configure_logging
 from news_trend_predictor.pipeline.orchestrator import PipelineRunResult, PipelineRunner
@@ -45,10 +47,24 @@ def _serialize_result(result: PipelineRunResult) -> dict[str, object]:
     }
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Run pipeline and return structured JSON output for n8n.")
+    parser.add_argument("--payload-b64", default=None, help="Base64-encoded raw API JSON payload.")
+    return parser.parse_args()
+
+
+def _decode_payload_records(payload_b64: str, settings) -> list[dict]:
+    raw_payload = base64.b64decode(payload_b64.encode("utf-8")).decode("utf-8")
+    parsed_payload = json.loads(raw_payload)
+    return NewsAPIClient(settings).extract_records(parsed_payload)
+
+
 def main() -> None:
+    args = parse_args()
     settings = get_settings()
     configure_logging(settings.log_level)
-    result = PipelineRunner(settings).run()
+    raw_records_override = _decode_payload_records(args.payload_b64, settings) if args.payload_b64 else None
+    result = PipelineRunner(settings).run(raw_records_override=raw_records_override)
     print(json.dumps(_serialize_result(result), ensure_ascii=True))
 
 

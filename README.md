@@ -2,6 +2,10 @@
 
 Minimalistic, production-style ML pipeline that predicts whether a news item will trend within a configurable time window. The project is intentionally lean: scikit-learn baseline, local model registry, adapters for Telegram and Google Sheets, time-based validation, and Docker-first execution without heavy infrastructure.
 
+Workflow screenshot:
+
+![n8n workflow](docs/images/n8n-workflow.jpg)
+
 ## Project Structure
 
 ```text
@@ -10,13 +14,18 @@ Minimalistic, production-style ML pipeline that predicts whether a news item wil
 |-- README.md
 |-- data/
 |   `-- sample_news.json
+|-- docs/
+|   `-- images/
+|       `-- n8n-workflow.jpg
 |-- n8n/
+|   |-- README.md
 |   `-- workflows/
 |       `-- news-trend-predictor.json
 |-- artifacts/
 |-- scripts/
 |   |-- infer.py
 |   |-- run_pipeline.py
+|   |-- run_pipeline_json.py
 |   `-- train.py
 |-- src/
 |   `-- news_trend_predictor/
@@ -74,6 +83,8 @@ Minimalistic, production-style ML pipeline that predicts whether a news item wil
 7. Evaluates the candidate and the current active model on the same holdout slice.
 8. Promotes the candidate only if PR-AUC improves by at least `MIN_PR_AUC_IMPROVEMENT`.
 9. Sends Telegram notifications and appends run logs to Google Sheets when credentials are available.
+
+When the project is orchestrated through `n8n`, the fetched API payload is passed into the Python pipeline and used directly for dataset building and training. This keeps the visual workflow aligned with the actual execution path.
 
 ## Pipeline Flow
 
@@ -219,6 +230,7 @@ NEWS_API_RECORDS_PATH=articles
 NEWS_API_SAMPLE_PATH=data/sample_news.json
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
+ENABLE_INTERNAL_TELEGRAM_NOTIFIER=true
 ```
 
 Docker test command:
@@ -268,9 +280,11 @@ Integrations:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
+- `ENABLE_INTERNAL_TELEGRAM_NOTIFIER`
 - `GOOGLE_SERVICE_ACCOUNT_JSON`
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SHEET_NAME`
+- `ENABLE_INTERNAL_GOOGLE_SHEETS_LOGGER`
 
 Scheduling:
 
@@ -363,6 +377,7 @@ The workflow provides visual connections for:
 - manual trigger
 - schedule trigger
 - HTTP request to the news API
+- payload handoff from n8n into the Python pipeline
 - pipeline execution
 - JSON result parsing
 - success vs failure branching
@@ -374,7 +389,7 @@ Visual flow:
 
 ```text
 Manual Trigger ----\
-                    -> HTTP Request - News API -> Run Pipeline -> Parse Result -> Pipeline Success?
+                    -> HTTP Request - News API -> Prepare Payload -> Run Pipeline -> Parse Result -> Pipeline Success?
 Schedule Trigger --/                                                   | false -> Build Failure Message -> Telegram - Failure
                                                                        |
                                                                        true -> Model Improved?
@@ -391,6 +406,12 @@ How to use it in n8n:
 4. Configure Telegram credentials in the three Telegram nodes
 5. Configure Google Sheets credentials in the Google Sheets node
 6. Set the required environment variables used in the expressions
+7. If you want Telegram and Google Sheets to be handled only by n8n, set:
+
+```env
+ENABLE_INTERNAL_TELEGRAM_NOTIFIER=false
+ENABLE_INTERNAL_GOOGLE_SHEETS_LOGGER=false
+```
 
 How to see the workflow visually:
 
@@ -411,6 +432,8 @@ Recommended environment variables for n8n execution:
 - `TELEGRAM_CHAT_ID`
 - `GOOGLE_SHEET_ID`
 - `GOOGLE_SHEET_NAME`
+- `ENABLE_INTERNAL_TELEGRAM_NOTIFIER=false`
+- `ENABLE_INTERNAL_GOOGLE_SHEETS_LOGGER=false`
 
 Why the workflow uses a Python command node:
 
@@ -421,7 +444,7 @@ Why the workflow uses a Python command node:
 The workflow calls:
 
 ```bash
-python scripts/run_pipeline_json.py
+python scripts/run_pipeline_json.py --payload-b64 <base64-encoded-http-response>
 ```
 
 That script prints structured JSON so n8n can branch on:
@@ -432,10 +455,3 @@ That script prints structured JSON so n8n can branch on:
 - `deployment.reason`
 - `error_message`
 
-## Why This Project Is Middle-Level
-
-- It is modular, but intentionally avoids platform-heavy infrastructure.
-- It contains a real training/evaluation/deployment loop instead of a notebook-only workflow.
-- It separates external integrations behind adapters.
-- It handles threshold tuning, time-based validation, promotion rules, rollback, and artifacts.
-- It is easy to run locally, but structured so the same code can move into a larger production environment later.

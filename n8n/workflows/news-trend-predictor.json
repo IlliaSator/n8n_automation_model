@@ -35,7 +35,7 @@
     {
       "parameters": {
         "method": "GET",
-        "url": "={{ $env.NEWS_API_BASE_URL ? $env.NEWS_API_BASE_URL + ($env.NEWS_API_ENDPOINT || '/news') : 'https://example.com' }}",
+        "url": "={{ $env.NEWS_API_BASE_URL + ($env.NEWS_API_ENDPOINT || '/news') }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -58,14 +58,27 @@
     },
     {
       "parameters": {
-        "command": "={{ 'cd ' + ($env.PROJECT_ROOT || '.') + ' && python scripts/run_pipeline_json.py' }}"
+        "jsCode": "const payload = JSON.stringify($input.first().json);\nconst payloadB64 = Buffer.from(payload, 'utf8').toString('base64');\nreturn [{ json: { payload_b64: payloadB64 } }];"
+      },
+      "id": "prepare-payload",
+      "name": "Prepare Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        670,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "command": "={{ 'cd ' + ($env.PROJECT_ROOT || '.') + ' && python scripts/run_pipeline_json.py --payload-b64 \"' + $json.payload_b64 + '\"' }}"
       },
       "id": "run-pipeline",
       "name": "Run Pipeline",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [
-        690,
+        920,
         180
       ]
     },
@@ -78,7 +91,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        930,
+        1160,
         180
       ]
     },
@@ -109,7 +122,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1170,
+        1400,
         180
       ]
     },
@@ -141,7 +154,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        1410,
+        1640,
         100
       ]
     },
@@ -163,7 +176,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1640,
+        1870,
         20
       ]
     },
@@ -185,7 +198,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1640,
+        1870,
         180
       ]
     },
@@ -207,7 +220,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1410,
+        1640,
         340
       ]
     },
@@ -224,7 +237,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1880,
+        2110,
         20
       ],
       "credentials": {
@@ -247,7 +260,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1880,
+        2110,
         180
       ],
       "credentials": {
@@ -270,7 +283,7 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
       "position": [
-        1640,
+        1870,
         340
       ],
       "credentials": {
@@ -382,7 +395,7 @@
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        1410,
+        1640,
         520
       ]
     },
@@ -426,7 +439,7 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        1660,
+        1890,
         520
       ],
       "credentials": {
@@ -462,6 +475,17 @@
       ]
     },
     "HTTP Request - News API": {
+      "main": [
+        [
+          {
+            "node": "Prepare Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Payload": {
       "main": [
         [
           {
@@ -582,7 +606,7 @@
   },
   "active": false,
   "settings": {},
-  "versionId": "news-trend-predictor-v2",
+  "versionId": "news-trend-predictor-v3",
   "meta": {
     "templateCredsSetupCompleted": false
   },

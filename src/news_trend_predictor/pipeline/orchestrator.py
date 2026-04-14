@@ -54,7 +54,7 @@ class PipelineRunner:
         self.telegram = TelegramNotifier(settings)
         self.sheets = GoogleSheetsLogger(settings)
 
-    def run(self) -> PipelineRunResult:
+    def run(self, raw_records_override: list[dict] | None = None) -> PipelineRunResult:
         run_id = uuid4().hex[:12]
         timestamp = datetime.now(timezone.utc).isoformat()
         candidate_metrics = None
@@ -63,7 +63,7 @@ class PipelineRunner:
         record_count = 0
 
         try:
-            raw_records = self.client.fetch_raw_records()
+            raw_records = raw_records_override if raw_records_override is not None else self.client.fetch_raw_records()
             records = self.parser.parse_records(raw_records)
             dataset = self.dataset_builder.build(records)
             record_count = len(dataset)

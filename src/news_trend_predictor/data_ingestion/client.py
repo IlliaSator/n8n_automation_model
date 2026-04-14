@@ -19,7 +19,7 @@ class NewsAPIClient:
     def fetch_raw_records(self) -> list[dict[str, Any]]:
         if not self.settings.news_api_base_url:
             LOGGER.info("NEWS_API_BASE_URL is not configured. Using sample payload from %s", self.settings.news_api_sample_path)
-            return self._load_sample_payload()
+            return self.load_records_from_payload_file()
 
         url = f"{self.settings.news_api_base_url.rstrip('/')}{self.settings.news_api_endpoint}"
         headers = {}
@@ -30,21 +30,21 @@ class NewsAPIClient:
         response.raise_for_status()
         data = response.json()
 
-        records = self._extract_records(data)
+        records = self.extract_records(data)
         if not isinstance(records, list):
             raise ValueError("Configured records path does not point to a JSON list.")
         return records
 
-    def _load_sample_payload(self) -> list[dict[str, Any]]:
-        sample_path = Path(self.settings.news_api_sample_path)
-        with sample_path.open("r", encoding="utf-8") as file:
+    def load_records_from_payload_file(self, path: str | Path | None = None) -> list[dict[str, Any]]:
+        payload_path = Path(path or self.settings.news_api_sample_path)
+        with payload_path.open("r", encoding="utf-8") as file:
             data = json.load(file)
-        records = self._extract_records(data)
+        records = self.extract_records(data)
         if not isinstance(records, list):
             raise ValueError("Sample payload must contain a list of records.")
         return records
 
-    def _extract_records(self, data: Any) -> Any:
+    def extract_records(self, data: Any) -> Any:
         current = data
         for key in self.settings.news_api_records_path.split("."):
             if not key:
