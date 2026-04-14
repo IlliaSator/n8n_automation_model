@@ -2,7 +2,7 @@
 
 Minimalistic, production-style ML pipeline that predicts whether a news item will trend within a configurable time window. The project is intentionally lean: scikit-learn baseline, local model registry, adapters for Telegram and Google Sheets, time-based validation, and Docker-first execution without heavy infrastructure.
 
-Workflow screenshot:
+Workflow screenshot (prototype, can be expanded upon discretion):
 
 ![n8n workflow](docs/images/n8n-workflow.jpg)
 
